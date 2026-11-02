@@ -43,7 +43,7 @@
   .big { font-size:28px; font-weight:600; max-width:18ch; line-height:1.2; }
   .sub { color:var(--muted); font-size:16px; }
   .hands { display:flex; align-items:center; gap:16px; }
-  .hand span { display:block; color:var(--muted); font-size:14px; margin-top:6px; }
+  .hand > span { display:block; color:var(--muted); font-size:14px; margin-top:6px; }
   .num { width:96px; height:96px; border-radius:50%; border:1.5px solid var(--line); background:var(--surface); display:grid; place-items:center; font-size:48px; font-weight:800; }
   .num.q { color:var(--muted); font-weight:400; }
   .sum { font-size:80px; font-weight:800; line-height:1; }
@@ -53,7 +53,7 @@
   .pick { height:56px; border-radius:16px; border:1.5px solid var(--line); background:transparent; font-size:18px; font-weight:600; cursor:pointer; }
   .pick.par { border-color:var(--par); color:var(--par); } .pick.impar { border-color:var(--impar); color:var(--impar); }
   .pad { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
-  .pad button { aspect-ratio:1/1.1; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--text); font-size:24px; font-weight:600; cursor:pointer; }
+  .pad button { aspect-ratio:1/1; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--text); font-size:24px; font-weight:600; cursor:pointer; }
   .pad button:active { transform:scale(.94); }
   .coin { width:120px; height:120px; position:relative; transform-style:preserve-3d; animation:flip 1.9s cubic-bezier(.2,.7,.3,1) forwards; }
   .face { position:absolute; inset:0; border-radius:50%; border:2px solid var(--text); display:grid; place-items:center; font-size:22px; font-weight:800; background:var(--surface); backface-visibility:hidden; -webkit-backface-visibility:hidden; }
@@ -65,7 +65,31 @@
   .card { width:100%; max-width:360px; background:var(--surface); border:1.5px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; text-align:center; font-size:20px; font-weight:600; }
   #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(24px + env(safe-area-inset-bottom,0px)); background:var(--text); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:600; font-size:15px; z-index:20; max-width:90%; text-align:center; }
   #banner { position:fixed; top:0; left:0; right:0; padding:calc(6px + env(safe-area-inset-top,0px)) 12px 6px; background:var(--impar); color:#201208; text-align:center; font-size:14px; font-weight:600; z-index:30; }
-  @media (prefers-reduced-motion:reduce) { .coin { animation-duration:.01s; } .late { animation-delay:0s; } }
+  .hbox { position:relative; width:132px; height:120px; display:grid; place-items:center; }
+  .fist { position:absolute; font-size:64px; animation:bob .32s ease-in-out 5, vanish .01s 1.6s forwards; }
+  .fist.still { animation:none; opacity:.55; }
+  .hbox .q { font-size:48px; color:var(--muted); }
+  .open { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  .hs { display:flex; }
+  .hd { font-size:50px; line-height:1; }
+  .cnt { font-size:24px; font-weight:800; }
+  .after { animation:pop .5s cubic-bezier(.2,1.4,.4,1) var(--d,1.6s) both; }
+  .now { animation:pop .4s cubic-bezier(.2,1.4,.4,1) both; }
+  @keyframes pop { from { opacity:0; transform:scale(.6); } to { opacity:1; transform:scale(1); } }
+  @keyframes bob { 0%,100% { transform:translateY(0) rotate(-8deg); } 50% { transform:translateY(-18px) rotate(8deg); } }
+  @keyframes vanish { to { opacity:0; visibility:hidden; } }
+  .win { color:var(--impar); text-shadow:0 0 28px rgba(255,178,122,.6); }
+  .trophy { font-size:96px; line-height:1; animation:pop .6s cubic-bezier(.2,1.4,.4,1) both; }
+  .bigscore { font-size:64px; font-weight:800; line-height:1; }
+  .roles { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; }
+  .role { border:1.5px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .role small { color:var(--muted); font-size:14px; }
+  .role b { font-size:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .role.me { border-color:var(--text); background:var(--surface); }
+  .confetti { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:5; }
+  .confetti i { position:absolute; top:-16px; width:9px; height:15px; border-radius:2px; animation:fall linear both; }
+  @keyframes fall { to { transform:translateY(112vh) rotate(720deg); } }
+  @media (prefers-reduced-motion:reduce) { .coin, .fist { animation-duration:.01s; } .late { animation-delay:0s; } }
 </style>
 </head>
 <body>
@@ -171,6 +195,13 @@ $("vGame").onclick = function (e) {
   else if (a === "rq") send({ t: "rematch" });
   else if (a === "rqok") send({ t: "rematchResp", ok: v === "1" });
 };
+var HAND = ["✊", "☝️", "✌️", "🤟", "🖖", "🖐️"];
+function handsOf(n) { return '<div class="hs"><span class="hd">' + (n > 5 ? HAND[5] + '</span><span class="hd">' + HAND[n - 5] : HAND[n]) + '</span></div><div class="cnt">' + n + "</div>"; }
+function confetti() {
+  var cols = ["var(--par)", "var(--impar)", "#eceef3"], h = "";
+  for (var i = 0; i < 46; i++) h += '<i style="left:' + (Math.random() * 100).toFixed(1) + "%;background:" + cols[i % 3] + ";animation-duration:" + (2.4 + Math.random() * 2).toFixed(1) + "s;animation-delay:" + (Math.random() * 1.2).toFixed(1) + 's"></i>';
+  return '<div class="confetti">' + h + "</div>";
+}
 function renderGame() {
   if (view !== "game" || !G) return;
   var stage = $("stage"), ctrl = $("ctrl"), board = $("board");
@@ -179,38 +210,45 @@ function renderGame() {
   if (oppLeft) { var s0 = JSON.stringify("left"); if (sig === s0) return; sig = s0; board.innerHTML = ""; stage.innerHTML = '<p class="big">' + name + " saiu da partida.</p>"; ctrl.innerHTML = leaveBtn; return; }
   var sg = JSON.stringify(G); if (sg === sig) return; sig = sg;
 
-  board.innerHTML = '<div class="p">Você<b>' + G.sc[me] + '</b></div><div class="mid">Melhor de ' + G.n + "<br>Rodada " + G.rd + '</div><div class="p">' + name + "<b>" + G.sc[ot] + "</b></div>";
+  board.innerHTML = '<div class="p">Você<b>' + G.sc[me] + '</b></div><div class="mid">Até ' + G.n + " pontos<br>Rodada " + G.rd + '</div><div class="p">' + name + "<b>" + G.sc[ot] + "</b></div>";
   var s = "", c = "";
-  var circle = function (t, q) { return '<div class="num' + (q ? " q" : "") + '">' + t + "</div>"; };
+  var lab = function (p) { return '<span class="' + p + '">' + (p === "par" ? "Par" : "Ímpar") + "</span>"; };
+  var myPk = G.pk ? (G.ch === me ? G.pk : (G.pk === "par" ? "impar" : "par")) : null, opPk = myPk === "par" ? "impar" : "par";
+
   if (G.st === "toss") {
-    s = '<div class="coin" style="--end:' + (G.toss === "cara" ? "1800deg" : "1980deg") + '"><div class="face">Cara</div><div class="face b">Coroa</div></div>' +
-      '<p class="sub">Você é ' + (me === 0 ? "Cara" : "Coroa") + "</p>" +
-      '<p class="big late">Deu ' + G.toss + ". " + (G.tw === me ? "Você escolhe" : name + " escolhe") + " par ou ímpar.</p>";
+    var who = function (i) { return i === me ? "Você" : name; };
+    s = '<div class="roles"><div class="role' + (me === 0 ? " me" : "") + '"><small>Cara</small><b>' + who(0) + '</b></div><div class="role' + (me === 1 ? " me" : "") + '"><small>Coroa</small><b>' + who(1) + "</b></div></div>" +
+      '<p class="big">Você é ' + (me === 0 ? "Cara" : "Coroa") + "</p>" +
+      '<div class="coin" style="--end:' + (G.toss === "cara" ? "1800deg" : "1980deg") + '"><div class="face">Cara</div><div class="face b">Coroa</div></div>' +
+      '<p class="big after" style="--d:2.2s">Deu ' + G.toss + "! " + (G.tw === me ? "Você começa escolhendo" : name + " começa escolhendo") + " par ou ímpar.</p>";
   } else if (G.st === "choose") {
     var mine = G.ch === me;
-    s = '<p class="big">' + (mine ? "Escolha par ou ímpar" : name + " está escolhendo par ou ímpar…") + "</p>";
+    s = '<p class="sub">Rodada ' + G.rd + '</p><div class="trophy" style="font-size:64px">' + (mine ? "🎯" : "⏳") + "</div>" +
+      '<p class="big">' + (mine ? "Sua vez! Escolha par ou ímpar" : name + " está escolhendo par ou ímpar…") + "</p>";
     if (mine) c = '<div class="two"><button class="pick par" data-a="pick" data-v="par">Par</button><button class="pick impar" data-a="pick" data-v="impar">Ímpar</button></div>';
   } else if (G.st === "num") {
-    var myPk = G.ch === me ? G.pk : (G.pk === "par" ? "impar" : "par"), opPk = myPk === "par" ? "impar" : "par";
-    var lab = function (p) { return '<span class="' + p + '">' + (p === "par" ? "Par" : "Ímpar") + "</span>"; };
     s = '<p class="sub">Você: ' + lab(myPk) + " · " + name + ": " + lab(opPk) + "</p>" +
-      '<div class="hands"><div class="hand">' + circle(G.my != null ? G.my : "?", G.my == null) + "<span>Você</span></div>" +
-      '<div class="hand">' + circle(G.who[ot] ? "✓" : "?", true) + "<span>" + name + "</span></div></div>";
-    if (G.my == null) { c = '<p class="sub">Quantos dedos?</p><div class="pad">'; for (var i = 0; i <= 5; i++) c += '<button data-a="num" data-v="' + i + '">' + i + "</button>"; c += "</div>"; }
+      '<div class="hands"><div class="hand"><div class="hbox">' + (G.my != null ? '<div class="open now">' + handsOf(G.my) + "</div>" : '<div class="fist still">✊</div>') + "</div><span>Você</span></div>" +
+      '<div class="hand"><div class="hbox">' + (G.who[ot] ? '<div class="fist still">✊</div>' : '<div class="q">?</div>') + "</div><span>" + name + (G.who[ot] ? " está pronto" : "") + "</span></div></div>";
+    if (G.my == null) { c = '<p class="sub">Quantos dedos? (0 a 10)</p><div class="pad">'; for (var i = 0; i <= 10; i++) c += '<button data-a="num" data-v="' + i + '">' + i + "</button>"; c += "</div>"; }
     else c = '<p class="sub">Aguardando ' + name + "…</p>";
   } else if (G.st === "reveal") {
-    var r = G.rv;
-    s = '<div class="hands"><div class="hand">' + circle(r.n[me]) + '<span>Você</span></div><div class="sub">+</div><div class="hand">' + circle(r.n[ot]) + "<span>" + name + "</span></div></div>" +
-      '<div class="sum ' + r.res + '">' + r.sum + "</div>" +
-      '<p class="big">' + (r.res === "par" ? "Par" : "Ímpar") + " · " + (r.w === me ? "ponto seu" : "ponto de " + name) + "</p>";
+    var r = G.rv, loser = 1 - r.w;
+    s = '<p class="sub">Você: ' + lab(myPk) + " · " + name + ": " + lab(opPk) + "</p>" +
+      '<div class="hands"><div class="hand"><div class="hbox"><div class="fist">✊</div><div class="open after">' + handsOf(r.n[me]) + "</div></div><span>Você</span></div>" +
+      '<div class="sub">+</div><div class="hand"><div class="hbox"><div class="fist">✊</div><div class="open after">' + handsOf(r.n[ot]) + "</div></div><span>" + name + "</span></div></div>" +
+      '<div class="sum after ' + r.res + '" style="--d:2.4s">' + r.sum + "</div>" +
+      '<p class="big after' + (r.w === me ? " win" : "") + '" style="--d:3.2s">' + (r.res === "par" ? "Par" : "Ímpar") + " · " + (r.w === me ? "PONTO SEU! 🎉" : "ponto de " + name) + "</p>" +
+      '<p class="sub after" style="--d:4.4s">' + (r.fin ? "" : (G.fin ? "Fim da partida…" : "Próxima rodada: " + (loser === me ? "você escolhe" : name + " escolhe") + " par ou ímpar")) + "</p>";
   } else if (G.st === "end") {
-    var loser = 1 - G.sw, next = G.n + 2;
-    s = '<p class="big">' + (G.sw === me ? "Você venceu!" : name + " venceu") + '</p><p class="sub">Melhor de ' + G.n + " · " + G.sc[me] + " × " + G.sc[ot] + "</p>";
+    var next = G.n + 2, won = G.sw === me, lo = 1 - G.sw;
+    s = won ? confetti() + '<div class="trophy">🏆</div><p class="big win">VOCÊ VENCEU!</p>' : '<div class="trophy">😔</div><p class="big">' + name + " venceu</p>";
+    s += '<div class="bigscore">' + G.sc[me] + " × " + G.sc[ot] + '</div><p class="sub">Partida até ' + G.n + " pontos</p>";
     if (G.dc) c = '<p class="sub">Revanche recusada.</p>';
     else if (G.n >= 7) c = '<p class="sub">Série encerrada.</p>';
-    else if (G.rq == null) c = loser === me ? '<button class="primary" data-a="rq">Pedir revanche · melhor de ' + next + "</button>" : '<p class="sub">Aguardando ' + name + " decidir sobre a revanche…</p>";
+    else if (G.rq == null) c = lo === me ? '<button class="primary" data-a="rq">Pedir revanche · até ' + next + " pontos</button><p class=\"sub\">O placar continua de onde parou.</p>" : '<p class="sub">Aguardando ' + name + " decidir sobre a revanche…</p>";
     else if (G.rq === me) c = '<p class="sub">Revanche pedida. Aguardando ' + name + "…</p>";
-    else c = '<p class="sub">' + name + " pediu revanche, melhor de " + next + '.</p><div class="two"><button class="ghost" data-a="rqok" data-v="0">Recusar</button><button class="primary" data-a="rqok" data-v="1">Aceitar</button></div>';
+    else c = '<p class="sub">' + name + " pediu revanche até " + next + ' pontos (o placar continua).</p><div class="two"><button class="ghost" data-a="rqok" data-v="0">Recusar</button><button class="primary" data-a="rqok" data-v="1">Aceitar</button></div>';
     c += leaveBtn;
   }
   if (!G.oppOn) s = '<p class="sub">' + name + " perdeu a conexão. Aguardando…</p>" + s;
