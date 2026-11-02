@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12141a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.json">
 <title>Par ou Ímpar online</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
 <style>
@@ -29,6 +32,9 @@
   .link { background:none; border:0; color:var(--muted); font-size:15px; padding:8px 0 8px 12px; cursor:pointer; }
   button:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
   .top { display:flex; justify-content:space-between; align-items:center; }
+  .stats-card { background:var(--surface); border:1.5px solid var(--line); border-radius:16px; padding:12px 16px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; }
+  .stats-item small { color:var(--muted); font-size:12px; display:block; }
+  .stats-item b { font-size:18px; font-weight:800; }
   .list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
   .row { display:flex; justify-content:space-between; align-items:center; width:100%; min-height:60px; padding:0 18px; border-radius:16px; border:1.5px solid var(--line); background:transparent; color:var(--text); font-size:18px; font-weight:600; cursor:pointer; text-align:left; }
   .row small { font-size:14px; font-weight:400; color:var(--muted); }
@@ -98,23 +104,33 @@
     <div class="center">
       <h1>Par ou Ímpar</h1>
       <p class="muted">Escolha seu nome e entre na sala para desafiar alguém.</p>
+      
+      <div class="stats-card">
+        <div class="stats-item"><small>Partidas</small><b id="stPlayed">0</b></div>
+        <div class="stats-item"><small>Vitórias</small><b id="stWins">0</b></div>
+        <div class="stats-item"><small>Taxa</small><b id="stRate">0%</b></div>
+      </div>
+
       <input id="name" maxlength="16" placeholder="Seu nome" autocomplete="off">
       <p id="err" class="err"></p>
       <button id="go" class="primary" disabled>Entrar na sala</button>
       <p id="conn" class="muted">Conectando…</p>
     </div>
   </section>
+
   <section id="vLobby" class="view" hidden>
     <div class="top"><h2>Sala</h2><button id="exit" class="link">Sair</button></div>
     <div id="list" class="list"></div>
     <button id="chal" class="primary" disabled>Desafiar</button>
   </section>
+
   <section id="vGame" class="view" hidden>
     <div id="board" class="board"></div>
     <div id="stage" class="stage"></div>
     <div id="ctrl" class="ctrl"></div>
   </section>
 </main>
+
 <div id="wait" class="overlay" hidden><div class="card"><span id="waitTxt"></span><button id="cancel" class="ghost">Cancelar</button></div></div>
 <div id="modal" class="overlay" hidden><div class="card"><span id="modalTxt"></span><div class="two"><button id="no" class="ghost">Recusar</button><button id="yes" class="primary">Aceitar</button></div></div></div>
 <div id="banner" hidden>Reconectando…</div>
@@ -124,15 +140,83 @@
 var $ = function (id) { return document.getElementById(id); };
 var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
 var ws = null, token = null, view = "enter", players = [], selected = null, G = null, oppLeft = false, sig = "";
+var recordedEnd = false;
+
 try { token = sessionStorage.getItem("pi_token"); } catch (e) {}
 
+/* ---------- Áudio Nativo & Vibração ---------- */
+var audioCtx = null;
+function playSound(type) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === "click") {
+      osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+      vibrate(10);
+    } else if (type === "win") {
+      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // E5
+      osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.30); // G5
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+      vibrate([50, 50, 100]);
+    } else if (type === "lose") {
+      osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(200, audioCtx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+      vibrate(150);
+    }
+  } catch (e) {}
+}
+
+function vibrate(ms) {
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+
+/* ---------- LocalStorage (Estatísticas) ---------- */
+function getStats() {
+  try {
+    return JSON.parse(localStorage.getItem("pi_stats")) || { played: 0, wins: 0, losses: 0 };
+  } catch (e) { return { played: 0, wins: 0, losses: 0 }; }
+}
+
+function recordMatchResult(won) {
+  var s = getStats();
+  s.played++;
+  if (won) s.wins++; else s.losses++;
+  try { localStorage.setItem("pi_stats", JSON.stringify(s)); } catch (e) {}
+  renderStats();
+}
+
+function renderStats() {
+  var s = getStats();
+  $("stPlayed").textContent = s.played;
+  $("stWins").textContent = s.wins;
+  var rate = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
+  $("stRate").textContent = rate + "%";
+}
+renderStats();
+
+/* ---------- Interface ---------- */
 function show(v) { view = v; sig = ""; $("vEnter").hidden = v !== "enter"; $("vLobby").hidden = v !== "lobby"; $("vGame").hidden = v !== "game"; }
 var toastT;
 function toast(t) { var el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 3500); }
 function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
 function saveToken(t) { token = t; try { if (t) sessionStorage.setItem("pi_token", t); else sessionStorage.removeItem("pi_token"); } catch (e) {} }
 
-/* ---------- Conexão (reconecta sozinho) ---------- */
+/* ---------- Conexão ---------- */
 function connect() {
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
   ws.onopen = function () {
@@ -142,6 +226,7 @@ function connect() {
   ws.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (x) { return; } handle(m); };
   ws.onclose = function () { $("go").disabled = true; if (view !== "enter" || token) $("banner").hidden = false; else $("conn").textContent = "Conectando…"; setTimeout(connect, 1500); };
 }
+
 function handle(m) {
   switch (m.t) {
     case "joined":
@@ -153,7 +238,7 @@ function handle(m) {
     case "lobby": players = m.players; renderLobby(); break;
     case "waiting": $("waitTxt").textContent = "Aguardando " + m.name + " aceitar o desafio…"; $("wait").hidden = false; break;
     case "waitEnd": $("wait").hidden = true; if (m.msg) toast(m.msg); break;
-    case "incoming": $("modalTxt").textContent = m.name + " desafiou você!"; $("modal").hidden = false; break;
+    case "incoming": $("modalTxt").textContent = m.name + " desafiou você!"; $("modal").hidden = false; vibrate([100, 50, 100]); break;
     case "incomingEnd": $("modal").hidden = true; if (m.msg) toast(m.msg); break;
     case "toast": toast(m.msg); break;
     case "match": G = m.g; oppLeft = false; $("wait").hidden = true; $("modal").hidden = true; if (view !== "game") show("game"); renderGame(); break;
@@ -163,12 +248,13 @@ function handle(m) {
 
 /* ---------- Entrada e sala ---------- */
 $("go").onclick = function () {
+  playSound("click");
   var n = $("name").value.trim();
   if (!n) { $("err").textContent = "Digite um nome."; return; }
   $("err").textContent = ""; send({ t: "join", name: n });
 };
 $("name").onkeydown = function (e) { if (e.key === "Enter") $("go").click(); };
-$("exit").onclick = function () { send({ t: "exit" }); saveToken(null); selected = null; show("enter"); };
+$("exit").onclick = function () { playSound("click"); send({ t: "exit" }); saveToken(null); selected = null; show("enter"); };
 function renderLobby() {
   if (view !== "lobby") return;
   if (selected && !players.some(function (p) { return p.id === selected; })) selected = null;
@@ -179,15 +265,16 @@ function renderLobby() {
   $("chal").textContent = sel ? "Desafiar " + sel.name : "Desafiar";
   $("chal").disabled = !sel || sel.st !== "free";
 }
-$("list").onclick = function (e) { var b = e.target.closest(".row"); if (!b) return; selected = Number(b.dataset.id); renderLobby(); };
-$("chal").onclick = function () { if (selected) send({ t: "challenge", to: selected }); };
-$("cancel").onclick = function () { send({ t: "cancel" }); };
-$("yes").onclick = function () { send({ t: "respond", ok: true }); };
-$("no").onclick = function () { send({ t: "respond", ok: false }); };
+$("list").onclick = function (e) { playSound("click"); var b = e.target.closest(".row"); if (!b) return; selected = Number(b.dataset.id); renderLobby(); };
+$("chal").onclick = function () { playSound("click"); if (selected) send({ t: "challenge", to: selected }); };
+$("cancel").onclick = function () { playSound("click"); send({ t: "cancel" }); };
+$("yes").onclick = function () { playSound("click"); send({ t: "respond", ok: true }); };
+$("no").onclick = function () { playSound("click"); send({ t: "respond", ok: false }); };
 
 /* ---------- Partida ---------- */
 $("vGame").onclick = function (e) {
   var b = e.target.closest("[data-a]"); if (!b) return;
+  playSound("click");
   var a = b.dataset.a, v = b.dataset.v;
   if (a === "leave") { send({ t: "leave" }); G = null; show("lobby"); renderLobby(); }
   else if (a === "pick") send({ t: "pick", v: v });
@@ -195,6 +282,7 @@ $("vGame").onclick = function (e) {
   else if (a === "rq") send({ t: "rematch" });
   else if (a === "rqok") send({ t: "rematchResp", ok: v === "1" });
 };
+
 var HAND = ["✊", "☝️", "✌️", "🤟", "🖖", "🖐️"];
 function handsOf(n) { return '<div class="hs"><span class="hd">' + (n > 5 ? HAND[5] + '</span><span class="hd">' + HAND[n - 5] : HAND[n]) + '</span></div><div class="cnt">' + n + "</div>"; }
 function confetti() {
@@ -202,11 +290,13 @@ function confetti() {
   for (var i = 0; i < 46; i++) h += '<i style="left:' + (Math.random() * 100).toFixed(1) + "%;background:" + cols[i % 3] + ";animation-duration:" + (2.4 + Math.random() * 2).toFixed(1) + "s;animation-delay:" + (Math.random() * 1.2).toFixed(1) + 's"></i>';
   return '<div class="confetti">' + h + "</div>";
 }
+
 function renderGame() {
   if (view !== "game" || !G) return;
   var stage = $("stage"), ctrl = $("ctrl"), board = $("board");
   var name = esc(G.opp), me = G.me, ot = 1 - me;
   var leaveBtn = '<button class="ghost" data-a="leave">Voltar à sala</button>';
+  
   if (oppLeft) { var s0 = JSON.stringify("left"); if (sig === s0) return; sig = s0; board.innerHTML = ""; stage.innerHTML = '<p class="big">' + name + " saiu da partida.</p>"; ctrl.innerHTML = leaveBtn; return; }
   var sg = JSON.stringify(G); if (sg === sig) return; sig = sg;
 
@@ -216,6 +306,7 @@ function renderGame() {
   var myPk = G.pk ? (G.ch === me ? G.pk : (G.pk === "par" ? "impar" : "par")) : null, opPk = myPk === "par" ? "impar" : "par";
 
   if (G.st === "toss") {
+    recordedEnd = false;
     var who = function (i) { return i === me ? "Você" : name; };
     s = '<div class="roles"><div class="role' + (me === 0 ? " me" : "") + '"><small>Cara</small><b>' + who(0) + '</b></div><div class="role' + (me === 1 ? " me" : "") + '"><small>Coroa</small><b>' + who(1) + "</b></div></div>" +
       '<p class="big">Você é ' + (me === 0 ? "Cara" : "Coroa") + "</p>" +
@@ -242,6 +333,11 @@ function renderGame() {
       '<p class="sub after" style="--d:4.4s">' + (r.fin ? "" : (G.fin ? "Fim da partida…" : "Próxima rodada: " + (loser === me ? "você escolhe" : name + " escolhe") + " par ou ímpar")) + "</p>";
   } else if (G.st === "end") {
     var next = G.n + 2, won = G.sw === me, lo = 1 - G.sw;
+    if (!recordedEnd) {
+      recordedEnd = true;
+      recordMatchResult(won);
+      playSound(won ? "win" : "lose");
+    }
     s = won ? confetti() + '<div class="trophy">🏆</div><p class="big win">VOCÊ VENCEU!</p>' : '<div class="trophy">😔</div><p class="big">' + name + " venceu</p>";
     s += '<div class="bigscore">' + G.sc[me] + " × " + G.sc[ot] + '</div><p class="sub">Partida até ' + G.n + " pontos</p>";
     if (G.dc) c = '<p class="sub">Revanche recusada.</p>';
