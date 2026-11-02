@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12141a">
+<title>Par ou Ímpar online</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#12141a; --surface:#1b1e27; --line:#2a2e3a; --text:#eceef3; --muted:#8b91a3; --par:#7fb2ff; --impar:#ffb27a; --font:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  * { box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); display:flex; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:manipulation; overscroll-behavior:none; }
+  button,input { font-family:var(--font); }
+  [hidden] { display:none !important; }
+  .app { width:100%; max-width:440px; height:100%; padding:calc(20px + env(safe-area-inset-top,0px)) 20px calc(20px + env(safe-area-inset-bottom,0px)); }
+  .view { height:100%; display:flex; flex-direction:column; gap:18px; }
+  .muted { color:var(--muted); }
+  h1 { font-size:40px; font-weight:800; }
+  h2 { font-size:24px; font-weight:600; }
+  .center { flex:1; display:flex; flex-direction:column; justify-content:center; gap:14px; }
+  input { height:56px; border-radius:16px; border:1.5px solid var(--line); background:var(--surface); color:var(--text); font-size:18px; padding:0 18px; width:100%; user-select:text; -webkit-user-select:text; }
+  input:focus { outline:none; border-color:var(--text); }
+  .err { color:var(--impar); min-height:20px; font-size:14px; }
+  .primary,.ghost { height:56px; border-radius:16px; font-size:18px; font-weight:600; cursor:pointer; width:100%; border:1.5px solid var(--text); }
+  .primary { background:var(--text); color:var(--bg); }
+  .ghost { background:transparent; color:var(--text); border-color:var(--line); }
+  .primary:disabled { opacity:.35; cursor:default; }
+  .link { background:none; border:0; color:var(--muted); font-size:15px; padding:8px 0 8px 12px; cursor:pointer; }
+  button:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
+  .top { display:flex; justify-content:space-between; align-items:center; }
+  .list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+  .row { display:flex; justify-content:space-between; align-items:center; width:100%; min-height:60px; padding:0 18px; border-radius:16px; border:1.5px solid var(--line); background:transparent; color:var(--text); font-size:18px; font-weight:600; cursor:pointer; text-align:left; }
+  .row small { font-size:14px; font-weight:400; color:var(--muted); }
+  .row.on { border-color:var(--text); background:var(--surface); }
+  .empty { margin:auto; text-align:center; color:var(--muted); font-size:17px; line-height:1.4; max-width:26ch; }
+  .board { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; }
+  .board .p { display:flex; flex-direction:column; gap:2px; font-size:15px; color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .board .p:last-child { text-align:right; }
+  .board .p b { color:var(--text); font-size:40px; font-weight:800; line-height:1; }
+  .board .mid { text-align:center; font-size:14px; color:var(--muted); }
+  .stage { flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:18px; min-height:0; }
+  .big { font-size:28px; font-weight:600; max-width:18ch; line-height:1.2; }
+  .sub { color:var(--muted); font-size:16px; }
+  .hands { display:flex; align-items:center; gap:16px; }
+  .hand span { display:block; color:var(--muted); font-size:14px; margin-top:6px; }
+  .num { width:96px; height:96px; border-radius:50%; border:1.5px solid var(--line); background:var(--surface); display:grid; place-items:center; font-size:48px; font-weight:800; }
+  .num.q { color:var(--muted); font-weight:400; }
+  .sum { font-size:80px; font-weight:800; line-height:1; }
+  .par { color:var(--par); } .impar { color:var(--impar); }
+  .ctrl { display:flex; flex-direction:column; gap:12px; min-height:76px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .pick { height:56px; border-radius:16px; border:1.5px solid var(--line); background:transparent; font-size:18px; font-weight:600; cursor:pointer; }
+  .pick.par { border-color:var(--par); color:var(--par); } .pick.impar { border-color:var(--impar); color:var(--impar); }
+  .pad { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+  .pad button { aspect-ratio:1/1.1; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--text); font-size:24px; font-weight:600; cursor:pointer; }
+  .pad button:active { transform:scale(.94); }
+  .coin { width:120px; height:120px; position:relative; transform-style:preserve-3d; animation:flip 1.9s cubic-bezier(.2,.7,.3,1) forwards; }
+  .face { position:absolute; inset:0; border-radius:50%; border:2px solid var(--text); display:grid; place-items:center; font-size:22px; font-weight:800; background:var(--surface); backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+  .face.b { transform:rotateY(180deg); }
+  @keyframes flip { from { transform:rotateY(0); } to { transform:rotateY(var(--end)); } }
+  .late { opacity:0; animation:show .4s 1.9s forwards; }
+  @keyframes show { to { opacity:1; } }
+  .overlay { position:fixed; inset:0; background:rgba(8,9,12,.78); display:flex; align-items:center; justify-content:center; padding:24px; z-index:10; }
+  .card { width:100%; max-width:360px; background:var(--surface); border:1.5px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; text-align:center; font-size:20px; font-weight:600; }
+  #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(24px + env(safe-area-inset-bottom,0px)); background:var(--text); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:600; font-size:15px; z-index:20; max-width:90%; text-align:center; }
+  #banner { position:fixed; top:0; left:0; right:0; padding:calc(6px + env(safe-area-inset-top,0px)) 12px 6px; background:var(--impar); color:#201208; text-align:center; font-size:14px; font-weight:600; z-index:30; }
+  @media (prefers-reduced-motion:reduce) { .coin { animation-duration:.01s; } .late { animation-delay:0s; } }
+</style>
+</head>
+<body>
+<main class="app">
+  <section id="vEnter" class="view">
+    <div class="center">
+      <h1>Par ou Ímpar</h1>
+      <p class="muted">Escolha seu nome e entre na sala para desafiar alguém.</p>
+      <input id="name" maxlength="16" placeholder="Seu nome" autocomplete="off">
+      <p id="err" class="err"></p>
+      <button id="go" class="primary" disabled>Entrar na sala</button>
+      <p id="conn" class="muted">Conectando…</p>
+    </div>
+  </section>
+  <section id="vLobby" class="view" hidden>
+    <div class="top"><h2>Sala</h2><button id="exit" class="link">Sair</button></div>
+    <div id="list" class="list"></div>
+    <button id="chal" class="primary" disabled>Desafiar</button>
+  </section>
+  <section id="vGame" class="view" hidden>
+    <div id="board" class="board"></div>
+    <div id="stage" class="stage"></div>
+    <div id="ctrl" class="ctrl"></div>
+  </section>
+</main>
+<div id="wait" class="overlay" hidden><div class="card"><span id="waitTxt"></span><button id="cancel" class="ghost">Cancelar</button></div></div>
+<div id="modal" class="overlay" hidden><div class="card"><span id="modalTxt"></span><div class="two"><button id="no" class="ghost">Recusar</button><button id="yes" class="primary">Aceitar</button></div></div></div>
+<div id="banner" hidden>Reconectando…</div>
+<div id="toast" hidden></div>
+
+<script>
+var $ = function (id) { return document.getElementById(id); };
+var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+var ws = null, token = null, view = "enter", players = [], selected = null, G = null, oppLeft = false, sig = "";
+try { token = sessionStorage.getItem("pi_token"); } catch (e) {}
+
+function show(v) { view = v; sig = ""; $("vEnter").hidden = v !== "enter"; $("vLobby").hidden = v !== "lobby"; $("vGame").hidden = v !== "game"; }
+var toastT;
+function toast(t) { var el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 3500); }
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function saveToken(t) { token = t; try { if (t) sessionStorage.setItem("pi_token", t); else sessionStorage.removeItem("pi_token"); } catch (e) {} }
+
+/* ---------- Conexão (reconecta sozinho) ---------- */
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onopen = function () {
+    $("banner").hidden = true; $("conn").textContent = "";
+    if (token) send({ t: "resume", token: token }); else $("go").disabled = false;
+  };
+  ws.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (x) { return; } handle(m); };
+  ws.onclose = function () { $("go").disabled = true; if (view !== "enter" || token) $("banner").hidden = false; else $("conn").textContent = "Conectando…"; setTimeout(connect, 1500); };
+}
+function handle(m) {
+  switch (m.t) {
+    case "joined":
+      saveToken(m.token);
+      if (view === "game") { if (!m.inMatch) { oppLeft = true; renderGame(); } } else if (!m.inMatch) show("lobby");
+      break;
+    case "noresume": saveToken(null); show("enter"); $("go").disabled = false; break;
+    case "err": $("err").textContent = m.msg; break;
+    case "lobby": players = m.players; renderLobby(); break;
+    case "waiting": $("waitTxt").textContent = "Aguardando " + m.name + " aceitar o desafio…"; $("wait").hidden = false; break;
+    case "waitEnd": $("wait").hidden = true; if (m.msg) toast(m.msg); break;
+    case "incoming": $("modalTxt").textContent = m.name + " desafiou você!"; $("modal").hidden = false; break;
+    case "incomingEnd": $("modal").hidden = true; if (m.msg) toast(m.msg); break;
+    case "toast": toast(m.msg); break;
+    case "match": G = m.g; oppLeft = false; $("wait").hidden = true; $("modal").hidden = true; if (view !== "game") show("game"); renderGame(); break;
+    case "oppLeft": oppLeft = true; renderGame(); break;
+  }
+}
+
+/* ---------- Entrada e sala ---------- */
+$("go").onclick = function () {
+  var n = $("name").value.trim();
+  if (!n) { $("err").textContent = "Digite um nome."; return; }
+  $("err").textContent = ""; send({ t: "join", name: n });
+};
+$("name").onkeydown = function (e) { if (e.key === "Enter") $("go").click(); };
+$("exit").onclick = function () { send({ t: "exit" }); saveToken(null); selected = null; show("enter"); };
+function renderLobby() {
+  if (view !== "lobby") return;
+  if (selected && !players.some(function (p) { return p.id === selected; })) selected = null;
+  $("list").innerHTML = players.length ? players.map(function (p) {
+    return '<button class="row' + (p.id === selected ? " on" : "") + '" data-id="' + p.id + '">' + esc(p.name) + "<small>" + (p.st === "free" ? "Livre" : "Ocupado") + "</small></button>";
+  }).join("") : '<p class="empty">Ninguém por aqui ainda. Peça para alguém abrir o link e entrar na sala.</p>';
+  var sel = players.find(function (p) { return p.id === selected; });
+  $("chal").textContent = sel ? "Desafiar " + sel.name : "Desafiar";
+  $("chal").disabled = !sel || sel.st !== "free";
+}
+$("list").onclick = function (e) { var b = e.target.closest(".row"); if (!b) return; selected = Number(b.dataset.id); renderLobby(); };
+$("chal").onclick = function () { if (selected) send({ t: "challenge", to: selected }); };
+$("cancel").onclick = function () { send({ t: "cancel" }); };
+$("yes").onclick = function () { send({ t: "respond", ok: true }); };
+$("no").onclick = function () { send({ t: "respond", ok: false }); };
+
+/* ---------- Partida ---------- */
+$("vGame").onclick = function (e) {
+  var b = e.target.closest("[data-a]"); if (!b) return;
+  var a = b.dataset.a, v = b.dataset.v;
+  if (a === "leave") { send({ t: "leave" }); G = null; show("lobby"); renderLobby(); }
+  else if (a === "pick") send({ t: "pick", v: v });
+  else if (a === "num") send({ t: "num", v: Number(v) });
+  else if (a === "rq") send({ t: "rematch" });
+  else if (a === "rqok") send({ t: "rematchResp", ok: v === "1" });
+};
+function renderGame() {
+  if (view !== "game" || !G) return;
+  var stage = $("stage"), ctrl = $("ctrl"), board = $("board");
+  var name = esc(G.opp), me = G.me, ot = 1 - me;
+  var leaveBtn = '<button class="ghost" data-a="leave">Voltar à sala</button>';
+  if (oppLeft) { var s0 = JSON.stringify("left"); if (sig === s0) return; sig = s0; board.innerHTML = ""; stage.innerHTML = '<p class="big">' + name + " saiu da partida.</p>"; ctrl.innerHTML = leaveBtn; return; }
+  var sg = JSON.stringify(G); if (sg === sig) return; sig = sg;
+
+  board.innerHTML = '<div class="p">Você<b>' + G.sc[me] + '</b></div><div class="mid">Melhor de ' + G.n + "<br>Rodada " + G.rd + '</div><div class="p">' + name + "<b>" + G.sc[ot] + "</b></div>";
+  var s = "", c = "";
+  var circle = function (t, q) { return '<div class="num' + (q ? " q" : "") + '">' + t + "</div>"; };
+  if (G.st === "toss") {
+    s = '<div class="coin" style="--end:' + (G.toss === "cara" ? "1800deg" : "1980deg") + '"><div class="face">Cara</div><div class="face b">Coroa</div></div>' +
+      '<p class="sub">Você é ' + (me === 0 ? "Cara" : "Coroa") + "</p>" +
+      '<p class="big late">Deu ' + G.toss + ". " + (G.tw === me ? "Você escolhe" : name + " escolhe") + " par ou ímpar.</p>";
+  } else if (G.st === "choose") {
+    var mine = G.ch === me;
+    s = '<p class="big">' + (mine ? "Escolha par ou ímpar" : name + " está escolhendo par ou ímpar…") + "</p>";
+    if (mine) c = '<div class="two"><button class="pick par" data-a="pick" data-v="par">Par</button><button class="pick impar" data-a="pick" data-v="impar">Ímpar</button></div>';
+  } else if (G.st === "num") {
+    var myPk = G.ch === me ? G.pk : (G.pk === "par" ? "impar" : "par"), opPk = myPk === "par" ? "impar" : "par";
+    var lab = function (p) { return '<span class="' + p + '">' + (p === "par" ? "Par" : "Ímpar") + "</span>"; };
+    s = '<p class="sub">Você: ' + lab(myPk) + " · " + name + ": " + lab(opPk) + "</p>" +
+      '<div class="hands"><div class="hand">' + circle(G.my != null ? G.my : "?", G.my == null) + "<span>Você</span></div>" +
+      '<div class="hand">' + circle(G.who[ot] ? "✓" : "?", true) + "<span>" + name + "</span></div></div>";
+    if (G.my == null) { c = '<p class="sub">Quantos dedos?</p><div class="pad">'; for (var i = 0; i <= 5; i++) c += '<button data-a="num" data-v="' + i + '">' + i + "</button>"; c += "</div>"; }
+    else c = '<p class="sub">Aguardando ' + name + "…</p>";
+  } else if (G.st === "reveal") {
+    var r = G.rv;
+    s = '<div class="hands"><div class="hand">' + circle(r.n[me]) + '<span>Você</span></div><div class="sub">+</div><div class="hand">' + circle(r.n[ot]) + "<span>" + name + "</span></div></div>" +
+      '<div class="sum ' + r.res + '">' + r.sum + "</div>" +
+      '<p class="big">' + (r.res === "par" ? "Par" : "Ímpar") + " · " + (r.w === me ? "ponto seu" : "ponto de " + name) + "</p>";
+  } else if (G.st === "end") {
+    var loser = 1 - G.sw, next = G.n + 2;
+    s = '<p class="big">' + (G.sw === me ? "Você venceu!" : name + " venceu") + '</p><p class="sub">Melhor de ' + G.n + " · " + G.sc[me] + " × " + G.sc[ot] + "</p>";
+    if (G.dc) c = '<p class="sub">Revanche recusada.</p>';
+    else if (G.n >= 7) c = '<p class="sub">Série encerrada.</p>';
+    else if (G.rq == null) c = loser === me ? '<button class="primary" data-a="rq">Pedir revanche · melhor de ' + next + "</button>" : '<p class="sub">Aguardando ' + name + " decidir sobre a revanche…</p>";
+    else if (G.rq === me) c = '<p class="sub">Revanche pedida. Aguardando ' + name + "…</p>";
+    else c = '<p class="sub">' + name + " pediu revanche, melhor de " + next + '.</p><div class="two"><button class="ghost" data-a="rqok" data-v="0">Recusar</button><button class="primary" data-a="rqok" data-v="1">Aceitar</button></div>';
+    c += leaveBtn;
+  }
+  if (!G.oppOn) s = '<p class="sub">' + name + " perdeu a conexão. Aguardando…</p>" + s;
+  stage.innerHTML = s; ctrl.innerHTML = c;
+}
+connect();
+</script>
+</body>
+</html>
