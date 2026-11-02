@@ -3,7 +3,7 @@
    Serve public/index.html e fala WebSocket em /ws. */
 const http = require("http"), fs = require("fs"), path = require("path"), crypto = require("crypto");
 const PORT = process.env.PORT || 3000, GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-const GRACE = 20000, ASK = 25000;
+const GRACE = 20000, ASK = 25000, SPEED = Number(process.env.PI_TIMING || 1); // PI_TIMING só para testes
 
 /* ---------- WebSocket mínimo (texto) ---------- */
 const conns = new Set();
@@ -110,25 +110,25 @@ function startMatch(C, T) {
   C.match = T.match = m; C.st = T.st = "busy";
   startSeries(m, 3); lobby();
 }
-function later(m, ms, fn) { m.timers.push(setTimeout(() => { if (m.alive) fn(); }, ms)); }
+function later(m, ms, fn) { m.timers.push(setTimeout(() => { if (m.alive) fn(); }, ms * SPEED)); }
 function view(m, i) {
   const o = m.p[1 - i];
   return { me: i, opp: o.name, oppOn: online(o), sid: m.sid, st: m.st, n: m.n, sc: m.sc, rd: m.rd, toss: m.toss, tw: m.tw, ch: m.ch,
     pk: m.pk, who: [m.nums[0] != null, m.nums[1] != null], my: m.nums[i], rv: m.rv, fin: m.fin, sw: m.sw, rq: m.rq, dc: m.dc };
 }
 function push(m) { m.v++; m.p.forEach((p, i) => send(p, { t: "match", g: view(m, i) })); }
-function startSeries(m, n) { // o desafiante (índice 0) é sempre Cara
+function startSeries(m, n, keep) { // o desafiante (índice 0) é sempre Cara; keep = revanche (placar continua)
   m.timers.forEach(clearTimeout); m.timers = [];
-  m.sid++; m.n = n; m.sc = [0, 0]; m.rd = 1; m.nums = [null, null]; m.pk = null; m.rv = null; m.fin = false; m.sw = null; m.rq = null; m.dc = false;
+  m.sid++; m.n = n; if (!keep) { m.sc = [0, 0]; m.rd = 1; } m.nums = [null, null]; m.pk = null; m.rv = null; m.fin = false; m.sw = null; m.rq = null; m.dc = false;
   m.toss = Math.random() < 0.5 ? "cara" : "coroa"; m.tw = m.toss === "cara" ? 0 : 1; m.st = "toss";
-  push(m); later(m, 4400, () => startChoose(m, m.tw));
+  push(m); later(m, 7500, () => startChoose(m, m.tw));
 }
 function startChoose(m, ch) { m.st = "choose"; m.ch = ch; m.pk = null; m.nums = [null, null]; m.rv = null; push(m); }
 function resolveRound(m) {
   const sum = m.nums[0] + m.nums[1], res = sum % 2 ? "impar" : "par", w = res === m.pk ? m.ch : 1 - m.ch;
-  m.sc[w]++; m.fin = m.sc[w] >= (m.n + 1) / 2;
+  m.sc[w]++; m.fin = m.sc[w] >= m.n; // n = pontos para vencer (3, 5 ou 7)
   m.rv = { n: m.nums.slice(), sum, res, w }; m.st = "reveal"; push(m);
-  later(m, 3800, () => {
+  later(m, m.fin ? 7000 : 9500, () => {
     if (m.fin) { m.st = "end"; m.sw = w; m.rq = null; push(m); }
     else { m.rd++; startChoose(m, 1 - w); } // quem perdeu o ponto escolhe par/ímpar
   });
@@ -176,13 +176,13 @@ function onMessage(conn, txt) {
     case "pick":
       if (m && m.st === "choose" && m.ch === i && (v === "par" || v === "impar")) { m.pk = v; m.st = "num"; m.nums = [null, null]; push(m); } break;
     case "num":
-      if (m && m.st === "num" && Number.isInteger(v) && v >= 0 && v <= 5 && m.nums[i] == null) {
+      if (m && m.st === "num" && Number.isInteger(v) && v >= 0 && v <= 10 && m.nums[i] == null) {
         m.nums[i] = v; if (m.nums[0] != null && m.nums[1] != null) resolveRound(m); else push(m);
       } break;
     case "rematch":
       if (m && m.st === "end" && m.rq == null && !m.dc && m.n < 7 && i === 1 - m.sw) { m.rq = i; push(m); } break;
     case "rematchResp":
-      if (m && m.st === "end" && m.rq != null && m.rq !== i && !m.dc) { if (msg.ok) startSeries(m, m.n + 2); else { m.dc = true; push(m); } } break;
+      if (m && m.st === "end" && m.rq != null && m.rq !== i && !m.dc) { if (msg.ok) startSeries(m, m.n + 2, true); else { m.dc = true; push(m); } } break;
     case "leave": if (m) endMatch(m, P); free(P); lobby(); break;
     case "exit": removePlayer(P); conn.P = null; break;
   }
