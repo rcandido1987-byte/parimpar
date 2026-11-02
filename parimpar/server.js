@@ -3,7 +3,7 @@
    Serve public/index.html e fala WebSocket em /ws. */
 const http = require("http"), fs = require("fs"), path = require("path"), crypto = require("crypto");
 const PORT = process.env.PORT || 3000, GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-const GRACE = 20000, ASK = 25000, SPEED = Number(process.env.PI_TIMING || 1); // PI_TIMING só para testes
+const GRACE = 20000, ASK = 25000, SPEED = Number(process.env.PI_TIMING || 1);
 
 /* ---------- WebSocket mínimo (texto) ---------- */
 const conns = new Set();
@@ -104,7 +104,7 @@ function dropChallenges(P, reason) {
   free(P);
 }
 
-/* ---------- Partida (a lógica fica toda aqui, no servidor) ---------- */
+/* ---------- Partida ---------- */
 function startMatch(C, T) {
   const m = { p: [C, T], alive: true, timers: [], sid: 0, v: 0 };
   C.match = T.match = m; C.st = T.st = "busy";
@@ -117,7 +117,7 @@ function view(m, i) {
     pk: m.pk, who: [m.nums[0] != null, m.nums[1] != null], my: m.nums[i], rv: m.rv, fin: m.fin, sw: m.sw, rq: m.rq, dc: m.dc };
 }
 function push(m) { m.v++; m.p.forEach((p, i) => send(p, { t: "match", g: view(m, i) })); }
-function startSeries(m, n, keep) { // o desafiante (índice 0) é sempre Cara; keep = revanche (placar continua)
+function startSeries(m, n, keep) {
   m.timers.forEach(clearTimeout); m.timers = [];
   m.sid++; m.n = n; if (!keep) { m.sc = [0, 0]; m.rd = 1; } m.nums = [null, null]; m.pk = null; m.rv = null; m.fin = false; m.sw = null; m.rq = null; m.dc = false;
   m.toss = Math.random() < 0.5 ? "cara" : "coroa"; m.tw = m.toss === "cara" ? 0 : 1; m.st = "toss";
@@ -126,11 +126,11 @@ function startSeries(m, n, keep) { // o desafiante (índice 0) é sempre Cara; k
 function startChoose(m, ch) { m.st = "choose"; m.ch = ch; m.pk = null; m.nums = [null, null]; m.rv = null; push(m); }
 function resolveRound(m) {
   const sum = m.nums[0] + m.nums[1], res = sum % 2 ? "impar" : "par", w = res === m.pk ? m.ch : 1 - m.ch;
-  m.sc[w]++; m.fin = m.sc[w] >= m.n; // n = pontos para vencer (3, 5 ou 7)
+  m.sc[w]++; m.fin = m.sc[w] >= m.n;
   m.rv = { n: m.nums.slice(), sum, res, w }; m.st = "reveal"; push(m);
   later(m, m.fin ? 7000 : 9500, () => {
     if (m.fin) { m.st = "end"; m.sw = w; m.rq = null; push(m); }
-    else { m.rd++; startChoose(m, 1 - w); } // quem perdeu o ponto escolhe par/ímpar
+    else { m.rd++; startChoose(m, 1 - w); }
   });
 }
 function endMatch(m, leaver) {
@@ -138,7 +138,7 @@ function endMatch(m, leaver) {
   m.alive = false; m.timers.forEach(clearTimeout);
   const other = m.p[m.p[0] === leaver ? 1 : 0];
   m.p.forEach((p) => { p.match = null; });
-  leaver.st = "free"; other.st = "busy"; // o outro fica ocupado até voltar à sala
+  leaver.st = "free"; other.st = "busy";
   send(other, { t: "oppLeft" }); lobby();
 }
 function removePlayer(P) {
@@ -198,16 +198,34 @@ function onConnection(conn) {
   };
 }
 
-/* ---------- HTTP ---------- */
+/* ---------- HTTP (Servindo Arquivos Estáticos) ---------- */
 const server = http.createServer((req, res) => {
   if (req.url === "/healthz") { res.end("ok"); return; }
+  
+  // Suporte ao manifest.json para PWA
+  if (req.url === "/manifest.json") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      name: "Par ou Ímpar Online",
+      short_name: "Par/Ímpar",
+      start_url: "/",
+      display: "standalone",
+      background_color: "#12141a",
+      theme_color: "#12141a",
+      icons: [{ src: "https://cdn-icons-png.flaticon.com/512/3063/3063822.png", sizes: "512x512", type: "image/png" }]
+    }));
+    return;
+  }
+
   fs.readFile(path.join(__dirname, "public", "index.html"), (e, d) => {
     if (e) { res.writeHead(500); res.end("Erro ao carregar a página."); return; }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }); res.end(d);
   });
 });
+
 server.on("upgrade", (req, socket) => {
   if (req.url.split("?")[0] !== "/ws") { socket.destroy(); return; }
   const conn = upgrade(req, socket); if (conn) onConnection(conn);
 });
+
 server.listen(PORT, () => console.log("Par ou Ímpar rodando em http://localhost:" + PORT));
