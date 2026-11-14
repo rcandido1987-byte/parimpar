@@ -1,356 +1,410 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#12141a">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" href="/manifest.json">
-<title>Par ou Ímpar online</title>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
-<style>
-  :root { --bg:#12141a; --surface:#1b1e27; --line:#2a2e3a; --text:#eceef3; --muted:#8b91a3; --par:#7fb2ff; --impar:#ffb27a; --font:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  * { box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
-  html,body { height:100%; }
-  body { background:var(--bg); color:var(--text); font-family:var(--font); display:flex; justify-content:center; user-select:none; -webkit-user-select:none; touch-action:manipulation; overscroll-behavior:none; }
-  button,input { font-family:var(--font); }
-  [hidden] { display:none !important; }
-  .app { width:100%; max-width:440px; height:100%; padding:calc(20px + env(safe-area-inset-top,0px)) 20px calc(20px + env(safe-area-inset-bottom,0px)); }
-  .view { height:100%; display:flex; flex-direction:column; gap:18px; }
-  .muted { color:var(--muted); }
-  h1 { font-size:40px; font-weight:800; }
-  h2 { font-size:24px; font-weight:600; }
-  .center { flex:1; display:flex; flex-direction:column; justify-content:center; gap:14px; }
-  input { height:56px; border-radius:16px; border:1.5px solid var(--line); background:var(--surface); color:var(--text); font-size:18px; padding:0 18px; width:100%; user-select:text; -webkit-user-select:text; }
-  input:focus { outline:none; border-color:var(--text); }
-  .err { color:var(--impar); min-height:20px; font-size:14px; }
-  .primary,.ghost { height:56px; border-radius:16px; font-size:18px; font-weight:600; cursor:pointer; width:100%; border:1.5px solid var(--text); }
-  .primary { background:var(--text); color:var(--bg); }
-  .ghost { background:transparent; color:var(--text); border-color:var(--line); }
-  .primary:disabled { opacity:.35; cursor:default; }
-  .link { background:none; border:0; color:var(--muted); font-size:15px; padding:8px 0 8px 12px; cursor:pointer; }
-  button:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
-  .top { display:flex; justify-content:space-between; align-items:center; }
-  .stats-card { background:var(--surface); border:1.5px solid var(--line); border-radius:16px; padding:12px 16px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; }
-  .stats-item small { color:var(--muted); font-size:12px; display:block; }
-  .stats-item b { font-size:18px; font-weight:800; }
-  .list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
-  .row { display:flex; justify-content:space-between; align-items:center; width:100%; min-height:60px; padding:0 18px; border-radius:16px; border:1.5px solid var(--line); background:transparent; color:var(--text); font-size:18px; font-weight:600; cursor:pointer; text-align:left; }
-  .row small { font-size:14px; font-weight:400; color:var(--muted); }
-  .row.on { border-color:var(--text); background:var(--surface); }
-  .empty { margin:auto; text-align:center; color:var(--muted); font-size:17px; line-height:1.4; max-width:26ch; }
-  .board { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; }
-  .board .p { display:flex; flex-direction:column; gap:2px; font-size:15px; color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; }
-  .board .p:last-child { text-align:right; }
-  .board .p b { color:var(--text); font-size:40px; font-weight:800; line-height:1; }
-  .board .mid { text-align:center; font-size:14px; color:var(--muted); }
-  .stage { flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:18px; min-height:0; }
-  .big { font-size:28px; font-weight:600; max-width:18ch; line-height:1.2; }
-  .sub { color:var(--muted); font-size:16px; }
-  .hands { display:flex; align-items:center; gap:16px; }
-  .hand > span { display:block; color:var(--muted); font-size:14px; margin-top:6px; }
-  .num { width:96px; height:96px; border-radius:50%; border:1.5px solid var(--line); background:var(--surface); display:grid; place-items:center; font-size:48px; font-weight:800; }
-  .num.q { color:var(--muted); font-weight:400; }
-  .sum { font-size:80px; font-weight:800; line-height:1; }
-  .par { color:var(--par); } .impar { color:var(--impar); }
-  .ctrl { display:flex; flex-direction:column; gap:12px; min-height:76px; }
-  .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .pick { height:56px; border-radius:16px; border:1.5px solid var(--line); background:transparent; font-size:18px; font-weight:600; cursor:pointer; }
-  .pick.par { border-color:var(--par); color:var(--par); } .pick.impar { border-color:var(--impar); color:var(--impar); }
-  .pad { display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
-  .pad button { aspect-ratio:1/1; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--text); font-size:24px; font-weight:600; cursor:pointer; }
-  .pad button:active { transform:scale(.94); }
-  .coin { width:120px; height:120px; position:relative; transform-style:preserve-3d; animation:flip 1.9s cubic-bezier(.2,.7,.3,1) forwards; }
-  .face { position:absolute; inset:0; border-radius:50%; border:2px solid var(--text); display:grid; place-items:center; font-size:22px; font-weight:800; background:var(--surface); backface-visibility:hidden; -webkit-backface-visibility:hidden; }
-  .face.b { transform:rotateY(180deg); }
-  @keyframes flip { from { transform:rotateY(0); } to { transform:rotateY(var(--end)); } }
-  .late { opacity:0; animation:show .4s 1.9s forwards; }
-  @keyframes show { to { opacity:1; } }
-  .overlay { position:fixed; inset:0; background:rgba(8,9,12,.78); display:flex; align-items:center; justify-content:center; padding:24px; z-index:10; }
-  .card { width:100%; max-width:360px; background:var(--surface); border:1.5px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; text-align:center; font-size:20px; font-weight:600; }
-  #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(24px + env(safe-area-inset-bottom,0px)); background:var(--text); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:600; font-size:15px; z-index:20; max-width:90%; text-align:center; }
-  #banner { position:fixed; top:0; left:0; right:0; padding:calc(6px + env(safe-area-inset-top,0px)) 12px 6px; background:var(--impar); color:#201208; text-align:center; font-size:14px; font-weight:600; z-index:30; }
-  .hbox { position:relative; width:132px; height:120px; display:grid; place-items:center; }
-  .fist { position:absolute; font-size:64px; animation:bob .32s ease-in-out 5, vanish .01s 1.6s forwards; }
-  .fist.still { animation:none; opacity:.55; }
-  .hbox .q { font-size:48px; color:var(--muted); }
-  .open { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
-  .hs { display:flex; }
-  .hd { font-size:50px; line-height:1; }
-  .cnt { font-size:24px; font-weight:800; }
-  .after { animation:pop .5s cubic-bezier(.2,1.4,.4,1) var(--d,1.6s) both; }
-  .now { animation:pop .4s cubic-bezier(.2,1.4,.4,1) both; }
-  @keyframes pop { from { opacity:0; transform:scale(.6); } to { opacity:1; transform:scale(1); } }
-  @keyframes bob { 0%,100% { transform:translateY(0) rotate(-8deg); } 50% { transform:translateY(-18px) rotate(8deg); } }
-  @keyframes vanish { to { opacity:0; visibility:hidden; } }
-  .win { color:var(--impar); text-shadow:0 0 28px rgba(255,178,122,.6); }
-  .trophy { font-size:96px; line-height:1; animation:pop .6s cubic-bezier(.2,1.4,.4,1) both; }
-  .bigscore { font-size:64px; font-weight:800; line-height:1; }
-  .roles { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; }
-  .role { border:1.5px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:2px; min-width:0; }
-  .role small { color:var(--muted); font-size:14px; }
-  .role b { font-size:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .role.me { border-color:var(--text); background:var(--surface); }
-  .confetti { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:5; }
-  .confetti i { position:absolute; top:-16px; width:9px; height:15px; border-radius:2px; animation:fall linear both; }
-  @keyframes fall { to { transform:translateY(112vh) rotate(720deg); } }
-  @media (prefers-reduced-motion:reduce) { .coin, .fist { animation-duration:.01s; } .late { animation-delay:0s; } }
-</style>
+<head><script src="https://myhub.ia.br/canvas-vendor/tailwind.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <title>Diversão com os amigos</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #020617;
+      color: #f8fafc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+      background:
+        radial-gradient(ellipse at top, rgba(139, 92, 246, .17), transparent 55%),
+        #020617;
+    }
+
+    main { width: min(100%, 760px); }
+
+    header { text-align: center; margin-bottom: 28px; }
+
+    .logo {
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 14px;
+      border-radius: 20px;
+      background: rgba(139, 92, 246, .16);
+      font-size: 32px;
+    }
+
+    .eyebrow {
+      color: #c4b5fd;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+
+    h1 { margin: 8px 0; font-size: clamp(2rem, 6vw, 3rem); }
+    h2 { margin: 8px 0; font-size: 1.6rem; }
+    p { line-height: 1.5; }
+
+    .muted { color: #94a3b8; }
+
+    .panel {
+      padding: clamp(20px, 5vw, 32px);
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 24px;
+      background: #0f172a;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .3);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      padding: 15px 16px;
+      border: 1px solid rgba(255, 255, 255, .14);
+      border-radius: 14px;
+      background: #020617;
+      color: #fff;
+      font: inherit;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #a78bfa;
+      box-shadow: 0 0 0 3px rgba(167, 139, 250, .18);
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    button:active { transform: scale(.99); }
+
+    .primary {
+      width: 100%;
+      margin-top: 14px;
+      padding: 15px 18px;
+      background: #8b5cf6;
+      color: #fff;
+    }
+
+    .primary:hover { background: #7c3aed; }
+    .primary:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
+
+    .secondary {
+      padding: 10px 13px;
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: transparent;
+      color: #cbd5e1;
+    }
+
+    .secondary:hover { background: rgba(255, 255, 255, .06); }
+
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .game-card {
+      min-height: 160px;
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 18px;
+      background: #0f172a;
+      color: #fff;
+      text-align: left;
+    }
+
+    .game-card:hover, .game-card.selected {
+      border-color: #a78bfa;
+      background: #1e293b;
+    }
+
+    .game-card.selected { box-shadow: 0 0 0 2px #a78bfa; }
+
+    .game-icon { font-size: 26px; }
+    .game-card h3 { margin: 14px 0 4px; font-size: 1.1rem; }
+    .players { margin: 0; color: #c4b5fd; font-size: .9rem; font-weight: 800; }
+    .description { margin: 8px 0 0; color: #94a3b8; font-size: .9rem; }
+
+    .notice {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid rgba(167, 139, 250, .25);
+      border-radius: 14px;
+      background: rgba(139, 92, 246, .1);
+      color: #ede9fe;
+    }
+
+    .room-code {
+      margin: 8px 0 0;
+      font-size: 1.8rem;
+      font-weight: 900;
+      letter-spacing: .2em;
+    }
+
+    .waiting {
+      padding: 16px;
+      border: 1px solid rgba(251, 191, 36, .25);
+      border-radius: 16px;
+      background: rgba(251, 191, 36, .08);
+      color: #fef3c7;
+    }
+
+    .hidden { display: none !important; }
+
+    footer {
+      margin-top: 22px;
+      color: #64748b;
+      font-size: .8rem;
+      text-align: center;
+    }
+
+    @media (max-width: 560px) {
+      .game-grid { grid-template-columns: 1fr; }
+      .game-card { min-height: 135px; }
+      .top-row { align-items: flex-start; }
+    }
+  </style>
 </head>
 <body>
-<main class="app">
-  <section id="vEnter" class="view">
-    <div class="center">
-      <h1>Par ou Ímpar</h1>
-      <p class="muted">Escolha seu nome e entre na sala para desafiar alguém.</p>
-      
-      <div class="stats-card">
-        <div class="stats-item"><small>Partidas</small><b id="stPlayed">0</b></div>
-        <div class="stats-item"><small>Vitórias</small><b id="stWins">0</b></div>
-        <div class="stats-item"><small>Taxa</small><b id="stRate">0%</b></div>
+  <main>
+    <header>
+      <div class="logo" aria-hidden="true">🎮</div>
+      <div class="eyebrow">Diversão com os amigos</div>
+      <h1>Escolha sua diversão</h1>
+      <p class="muted">Entre com seu nome e escolha o jogo da vez.</p>
+    </header>
+
+    <section id="name-screen" class="panel">
+      <div class="eyebrow">Etapa 1 de 2</div>
+      <h2>Como devemos chamar você?</h2>
+      <p class="muted">Seu nome aparecerá para os outros jogadores.</p>
+      <form id="name-form">
+        <label for="player-name">Seu nome</label>
+        <input id="player-name" maxlength="16" autocomplete="nickname"
+          placeholder="Digite seu nome" required>
+        <button class="primary" type="submit">Continuar para os jogos →</button>
+      </form>
+    </section>
+
+    <section id="games-screen" class="hidden">
+      <div class="top-row">
+        <div>
+          <div class="eyebrow">Etapa 2 de 2</div>
+          <h2>Qual jogo você quer?</h2>
+          <p class="muted">Olá, <strong id="welcome-name"></strong>! Selecione uma opção.</p>
+        </div>
+        <button id="change-name" class="secondary" type="button">Trocar nome</button>
       </div>
 
-      <input id="name" maxlength="16" placeholder="Seu nome" autocomplete="off">
-      <p id="err" class="err"></p>
-      <button id="go" class="primary" disabled>Entrar na sala</button>
-      <p id="conn" class="muted">Conectando…</p>
-    </div>
-  </section>
+      <div id="game-list" class="game-grid"></div>
+      <div id="selection-message" class="notice hidden" role="status"></div>
+      <button id="choose-game" class="primary" type="button" disabled>
+        Escolha um jogo para continuar
+      </button>
+      <p class="muted" style="text-align:center;font-size:.82rem">
+        As regras e a dinâmica dos demais jogos serão adicionadas depois.
+      </p>
+    </section>
 
-  <section id="vLobby" class="view" hidden>
-    <div class="top"><h2>Sala</h2><button id="exit" class="link">Sair</button></div>
-    <div id="list" class="list"></div>
-    <button id="chal" class="primary" disabled>Desafiar</button>
-  </section>
+    <section id="room-screen" class="panel hidden">
+      <div class="eyebrow">Sala de jogo</div>
+      <h2>Par ou Ímpar <span class="muted">· 1x1</span></h2>
+      <p class="muted">Você entrou na sala, <strong id="room-player-name"></strong>.</p>
 
-  <section id="vGame" class="view" hidden>
-    <div id="board" class="board"></div>
-    <div id="stage" class="stage"></div>
-    <div id="ctrl" class="ctrl"></div>
-  </section>
-</main>
+      <div class="waiting">
+        <strong>A sala está esperando outro jogador</strong>
+        <p style="margin-bottom:0">Convide um amigo para jogar com você.</p>
+      </div>
 
-<div id="wait" class="overlay" hidden><div class="card"><span id="waitTxt"></span><button id="cancel" class="ghost">Cancelar</button></div></div>
-<div id="modal" class="overlay" hidden><div class="card"><span id="modalTxt"></span><div class="two"><button id="no" class="ghost">Recusar</button><button id="yes" class="primary">Aceitar</button></div></div></div>
-<div id="banner" hidden>Reconectando…</div>
-<div id="toast" hidden></div>
+      <div class="panel" style="margin-top:14px;padding:16px;background:#020617">
+        <div class="eyebrow">Código da sala</div>
+        <div id="room-code" class="room-code"></div>
+      </div>
 
-<script>
-var $ = function (id) { return document.getElementById(id); };
-var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-var ws = null, token = null, view = "enter", players = [], selected = null, G = null, oppLeft = false, sig = "";
-var recordedEnd = false;
+      <button id="invite-friend" class="primary" type="button">
+        Convidar amigo(a) pelo WhatsApp ↗
+      </button>
+      <p id="invite-status" class="notice hidden" role="status"></p>
+      <p class="muted" style="text-align:center;font-size:.82rem">
+        Você poderá escolher o contato no WhatsApp ou no menu de compartilhamento do celular.
+      </p>
+      <button id="back-to-games" class="secondary" type="button" style="width:100%;margin-top:8px">
+        Voltar à seleção de jogos
+      </button>
+    </section>
 
-try { token = sessionStorage.getItem("pi_token"); } catch (e) {}
+    <footer>Uma sala, vários jogos, muita diversão.</footer>
+  </main>
 
-/* ---------- Áudio Nativo & Vibração ---------- */
-var audioCtx = null;
-function playSound(type) {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
-    
-    var osc = audioCtx.createOscillator();
-    var gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+  <script>
+    const games = [
+      { name: "Par ou Ímpar", players: "1x1", icon: "🪙", description: "Desafie outro jogador neste clássico." },
+      { name: "Jokenpô", players: "2 a 6 jogadores", icon: "✊", description: "Pedra, papel e tesoura em grupo." },
+      { name: "Detetive", players: "8 a 10 jogadores", icon: "🕵️", description: "Investigue e descubra o mistério." },
+      { name: "Jogo da Forca", players: "1 a 4 jogadores", icon: "🔤", description: "Adivinhe a palavra antes que o tempo acabe." },
+      { name: "Stop", players: "2 a 10 jogadores", icon: "📝", description: "Pense rápido e complete as categorias." }
+    ];
 
-    if (type === "click") {
-      osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.05);
-      vibrate(10);
-    } else if (type === "win") {
-      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // E5
-      osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.30); // G5
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.6);
-      vibrate([50, 50, 100]);
-    } else if (type === "lose") {
-      osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-      osc.frequency.setValueAtTime(200, audioCtx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.5);
-      vibrate(150);
+    const nameScreen = document.getElementById("name-screen");
+    const gamesScreen = document.getElementById("games-screen");
+    const roomScreen = document.getElementById("room-screen");
+    const nameInput = document.getElementById("player-name");
+    const welcomeName = document.getElementById("welcome-name");
+    const chooseButton = document.getElementById("choose-game");
+    const selectionMessage = document.getElementById("selection-message");
+    const gameList = document.getElementById("game-list");
+
+    let playerName = "";
+    let selectedGame = "";
+    let roomCode = "";
+
+    function renderGames() {
+      games.forEach((game) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "game-card";
+        card.dataset.game = game.name;
+
+        const icon = document.createElement("span");
+        icon.className = "game-icon";
+        icon.textContent = game.icon;
+
+        const title = document.createElement("h3");
+        title.textContent = game.name;
+
+        const players = document.createElement("p");
+        players.className = "players";
+        players.textContent = game.players;
+
+        const description = document.createElement("p");
+        description.className = "description";
+        description.textContent = game.description;
+
+        card.append(icon, title, players, description);
+        card.addEventListener("click", () => selectGame(game.name, card));
+        gameList.appendChild(card);
+      });
     }
-  } catch (e) {}
-}
 
-function vibrate(ms) {
-  if (navigator.vibrate) navigator.vibrate(ms);
-}
+    function selectGame(name, selectedCard) {
+      document.querySelectorAll(".game-card").forEach((card) => {
+        card.classList.remove("selected");
+      });
 
-/* ---------- LocalStorage (Estatísticas) ---------- */
-function getStats() {
-  try {
-    return JSON.parse(localStorage.getItem("pi_stats")) || { played: 0, wins: 0, losses: 0 };
-  } catch (e) { return { played: 0, wins: 0, losses: 0 }; }
-}
-
-function recordMatchResult(won) {
-  var s = getStats();
-  s.played++;
-  if (won) s.wins++; else s.losses++;
-  try { localStorage.setItem("pi_stats", JSON.stringify(s)); } catch (e) {}
-  renderStats();
-}
-
-function renderStats() {
-  var s = getStats();
-  $("stPlayed").textContent = s.played;
-  $("stWins").textContent = s.wins;
-  var rate = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
-  $("stRate").textContent = rate + "%";
-}
-renderStats();
-
-/* ---------- Interface ---------- */
-function show(v) { view = v; sig = ""; $("vEnter").hidden = v !== "enter"; $("vLobby").hidden = v !== "lobby"; $("vGame").hidden = v !== "game"; }
-var toastT;
-function toast(t) { var el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { el.hidden = true; }, 3500); }
-function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
-function saveToken(t) { token = t; try { if (t) sessionStorage.setItem("pi_token", t); else sessionStorage.removeItem("pi_token"); } catch (e) {} }
-
-/* ---------- Conexão ---------- */
-function connect() {
-  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
-  ws.onopen = function () {
-    $("banner").hidden = true; $("conn").textContent = "";
-    if (token) send({ t: "resume", token: token }); else $("go").disabled = false;
-  };
-  ws.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (x) { return; } handle(m); };
-  ws.onclose = function () { $("go").disabled = true; if (view !== "enter" || token) $("banner").hidden = false; else $("conn").textContent = "Conectando…"; setTimeout(connect, 1500); };
-}
-
-function handle(m) {
-  switch (m.t) {
-    case "joined":
-      saveToken(m.token);
-      if (view === "game") { if (!m.inMatch) { oppLeft = true; renderGame(); } } else if (!m.inMatch) show("lobby");
-      break;
-    case "noresume": saveToken(null); show("enter"); $("go").disabled = false; break;
-    case "err": $("err").textContent = m.msg; break;
-    case "lobby": players = m.players; renderLobby(); break;
-    case "waiting": $("waitTxt").textContent = "Aguardando " + m.name + " aceitar o desafio…"; $("wait").hidden = false; break;
-    case "waitEnd": $("wait").hidden = true; if (m.msg) toast(m.msg); break;
-    case "incoming": $("modalTxt").textContent = m.name + " desafiou você!"; $("modal").hidden = false; vibrate([100, 50, 100]); break;
-    case "incomingEnd": $("modal").hidden = true; if (m.msg) toast(m.msg); break;
-    case "toast": toast(m.msg); break;
-    case "match": G = m.g; oppLeft = false; $("wait").hidden = true; $("modal").hidden = true; if (view !== "game") show("game"); renderGame(); break;
-    case "oppLeft": oppLeft = true; renderGame(); break;
-  }
-}
-
-/* ---------- Entrada e sala ---------- */
-$("go").onclick = function () {
-  playSound("click");
-  var n = $("name").value.trim();
-  if (!n) { $("err").textContent = "Digite um nome."; return; }
-  $("err").textContent = ""; send({ t: "join", name: n });
-};
-$("name").onkeydown = function (e) { if (e.key === "Enter") $("go").click(); };
-$("exit").onclick = function () { playSound("click"); send({ t: "exit" }); saveToken(null); selected = null; show("enter"); };
-function renderLobby() {
-  if (view !== "lobby") return;
-  if (selected && !players.some(function (p) { return p.id === selected; })) selected = null;
-  $("list").innerHTML = players.length ? players.map(function (p) {
-    return '<button class="row' + (p.id === selected ? " on" : "") + '" data-id="' + p.id + '">' + esc(p.name) + "<small>" + (p.st === "free" ? "Livre" : "Ocupado") + "</small></button>";
-  }).join("") : '<p class="empty">Ninguém por aqui ainda. Peça para alguém abrir o link e entrar na sala.</p>';
-  var sel = players.find(function (p) { return p.id === selected; });
-  $("chal").textContent = sel ? "Desafiar " + sel.name : "Desafiar";
-  $("chal").disabled = !sel || sel.st !== "free";
-}
-$("list").onclick = function (e) { playSound("click"); var b = e.target.closest(".row"); if (!b) return; selected = Number(b.dataset.id); renderLobby(); };
-$("chal").onclick = function () { playSound("click"); if (selected) send({ t: "challenge", to: selected }); };
-$("cancel").onclick = function () { playSound("click"); send({ t: "cancel" }); };
-$("yes").onclick = function () { playSound("click"); send({ t: "respond", ok: true }); };
-$("no").onclick = function () { playSound("click"); send({ t: "respond", ok: false }); };
-
-/* ---------- Partida ---------- */
-$("vGame").onclick = function (e) {
-  var b = e.target.closest("[data-a]"); if (!b) return;
-  playSound("click");
-  var a = b.dataset.a, v = b.dataset.v;
-  if (a === "leave") { send({ t: "leave" }); G = null; show("lobby"); renderLobby(); }
-  else if (a === "pick") send({ t: "pick", v: v });
-  else if (a === "num") send({ t: "num", v: Number(v) });
-  else if (a === "rq") send({ t: "rematch" });
-  else if (a === "rqok") send({ t: "rematchResp", ok: v === "1" });
-};
-
-var HAND = ["✊", "☝️", "✌️", "🤟", "🖖", "🖐️"];
-function handsOf(n) { return '<div class="hs"><span class="hd">' + (n > 5 ? HAND[5] + '</span><span class="hd">' + HAND[n - 5] : HAND[n]) + '</span></div><div class="cnt">' + n + "</div>"; }
-function confetti() {
-  var cols = ["var(--par)", "var(--impar)", "#eceef3"], h = "";
-  for (var i = 0; i < 46; i++) h += '<i style="left:' + (Math.random() * 100).toFixed(1) + "%;background:" + cols[i % 3] + ";animation-duration:" + (2.4 + Math.random() * 2).toFixed(1) + "s;animation-delay:" + (Math.random() * 1.2).toFixed(1) + 's"></i>';
-  return '<div class="confetti">' + h + "</div>";
-}
-
-function renderGame() {
-  if (view !== "game" || !G) return;
-  var stage = $("stage"), ctrl = $("ctrl"), board = $("board");
-  var name = esc(G.opp), me = G.me, ot = 1 - me;
-  var leaveBtn = '<button class="ghost" data-a="leave">Voltar à sala</button>';
-  
-  if (oppLeft) { var s0 = JSON.stringify("left"); if (sig === s0) return; sig = s0; board.innerHTML = ""; stage.innerHTML = '<p class="big">' + name + " saiu da partida.</p>"; ctrl.innerHTML = leaveBtn; return; }
-  var sg = JSON.stringify(G); if (sg === sig) return; sig = sg;
-
-  board.innerHTML = '<div class="p">Você<b>' + G.sc[me] + '</b></div><div class="mid">Até ' + G.n + " pontos<br>Rodada " + G.rd + '</div><div class="p">' + name + "<b>" + G.sc[ot] + "</b></div>";
-  var s = "", c = "";
-  var lab = function (p) { return '<span class="' + p + '">' + (p === "par" ? "Par" : "Ímpar") + "</span>"; };
-  var myPk = G.pk ? (G.ch === me ? G.pk : (G.pk === "par" ? "impar" : "par")) : null, opPk = myPk === "par" ? "impar" : "par";
-
-  if (G.st === "toss") {
-    recordedEnd = false;
-    var who = function (i) { return i === me ? "Você" : name; };
-    s = '<div class="roles"><div class="role' + (me === 0 ? " me" : "") + '"><small>Cara</small><b>' + who(0) + '</b></div><div class="role' + (me === 1 ? " me" : "") + '"><small>Coroa</small><b>' + who(1) + "</b></div></div>" +
-      '<p class="big">Você é ' + (me === 0 ? "Cara" : "Coroa") + "</p>" +
-      '<div class="coin" style="--end:' + (G.toss === "cara" ? "1800deg" : "1980deg") + '"><div class="face">Cara</div><div class="face b">Coroa</div></div>' +
-      '<p class="big after" style="--d:2.2s">Deu ' + G.toss + "! " + (G.tw === me ? "Você começa escolhendo" : name + " começa escolhendo") + " par ou ímpar.</p>";
-  } else if (G.st === "choose") {
-    var mine = G.ch === me;
-    s = '<p class="sub">Rodada ' + G.rd + '</p><div class="trophy" style="font-size:64px">' + (mine ? "🎯" : "⏳") + "</div>" +
-      '<p class="big">' + (mine ? "Sua vez! Escolha par ou ímpar" : name + " está escolhendo par ou ímpar…") + "</p>";
-    if (mine) c = '<div class="two"><button class="pick par" data-a="pick" data-v="par">Par</button><button class="pick impar" data-a="pick" data-v="impar">Ímpar</button></div>';
-  } else if (G.st === "num") {
-    s = '<p class="sub">Você: ' + lab(myPk) + " · " + name + ": " + lab(opPk) + "</p>" +
-      '<div class="hands"><div class="hand"><div class="hbox">' + (G.my != null ? '<div class="open now">' + handsOf(G.my) + "</div>" : '<div class="fist still">✊</div>') + "</div><span>Você</span></div>" +
-      '<div class="hand"><div class="hbox">' + (G.who[ot] ? '<div class="fist still">✊</div>' : '<div class="q">?</div>') + "</div><span>" + name + (G.who[ot] ? " está pronto" : "") + "</span></div></div>";
-    if (G.my == null) { c = '<p class="sub">Quantos dedos? (0 a 10)</p><div class="pad">'; for (var i = 0; i <= 10; i++) c += '<button data-a="num" data-v="' + i + '">' + i + "</button>"; c += "</div>"; }
-    else c = '<p class="sub">Aguardando ' + name + "…</p>";
-  } else if (G.st === "reveal") {
-    var r = G.rv, loser = 1 - r.w;
-    s = '<p class="sub">Você: ' + lab(myPk) + " · " + name + ": " + lab(opPk) + "</p>" +
-      '<div class="hands"><div class="hand"><div class="hbox"><div class="fist">✊</div><div class="open after">' + handsOf(r.n[me]) + "</div></div><span>Você</span></div>" +
-      '<div class="sub">+</div><div class="hand"><div class="hbox"><div class="fist">✊</div><div class="open after">' + handsOf(r.n[ot]) + "</div></div><span>" + name + "</span></div></div>" +
-      '<div class="sum after ' + r.res + '" style="--d:2.4s">' + r.sum + "</div>" +
-      '<p class="big after' + (r.w === me ? " win" : "") + '" style="--d:3.2s">' + (r.res === "par" ? "Par" : "Ímpar") + " · " + (r.w === me ? "PONTO SEU! 🎉" : "ponto de " + name) + "</p>" +
-      '<p class="sub after" style="--d:4.4s">' + (r.fin ? "" : (G.fin ? "Fim da partida…" : "Próxima rodada: " + (loser === me ? "você escolhe" : name + " escolhe") + " par ou ímpar")) + "</p>";
-  } else if (G.st === "end") {
-    var next = G.n + 2, won = G.sw === me, lo = 1 - G.sw;
-    if (!recordedEnd) {
-      recordedEnd = true;
-      recordMatchResult(won);
-      playSound(won ? "win" : "lose");
+      selectedCard.classList.add("selected");
+      selectedGame = name;
+      chooseButton.disabled = false;
+      chooseButton.textContent = "Continuar com " + name;
+      selectionMessage.classList.add("hidden");
     }
-    s = won ? confetti() + '<div class="trophy">🏆</div><p class="big win">VOCÊ VENCEU!</p>' : '<div class="trophy">😔</div><p class="big">' + name + " venceu</p>";
-    s += '<div class="bigscore">' + G.sc[me] + " × " + G.sc[ot] + '</div><p class="sub">Partida até ' + G.n + " pontos</p>";
-    if (G.dc) c = '<p class="sub">Revanche recusada.</p>';
-    else if (G.n >= 7) c = '<p class="sub">Série encerrada.</p>';
-    else if (G.rq == null) c = lo === me ? '<button class="primary" data-a="rq">Pedir revanche · até ' + next + " pontos</button><p class=\"sub\">O placar continua de onde parou.</p>" : '<p class="sub">Aguardando ' + name + " decidir sobre a revanche…</p>";
-    else if (G.rq === me) c = '<p class="sub">Revanche pedida. Aguardando ' + name + "…</p>";
-    else c = '<p class="sub">' + name + " pediu revanche até " + next + ' pontos (o placar continua).</p><div class="two"><button class="ghost" data-a="rqok" data-v="0">Recusar</button><button class="primary" data-a="rqok" data-v="1">Aceitar</button></div>';
-    c += leaveBtn;
-  }
-  if (!G.oppOn) s = '<p class="sub">' + name + " perdeu a conexão. Aguardando…</p>" + s;
-  stage.innerHTML = s; ctrl.innerHTML = c;
-}
-connect();
-</script>
+
+    document.getElementById("name-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      playerName = nameInput.value.trim();
+
+      if (!playerName) {
+        nameInput.focus();
+        return;
+      }
+
+      welcomeName.textContent = playerName;
+      nameScreen.classList.add("hidden");
+      gamesScreen.classList.remove("hidden");
+    });
+
+    document.getElementById("change-name").addEventListener("click", () => {
+      gamesScreen.classList.add("hidden");
+      nameScreen.classList.remove("hidden");
+      nameInput.focus();
+    });
+
+    chooseButton.addEventListener("click", () => {
+      if (!selectedGame) return;
+
+      if (selectedGame === "Par ou Ímpar") {
+        roomCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+        document.getElementById("room-player-name").textContent = playerName;
+        document.getElementById("room-code").textContent = roomCode;
+        gamesScreen.classList.add("hidden");
+        roomScreen.classList.remove("hidden");
+        return;
+      }
+
+      selectionMessage.textContent =
+        selectedGame + " foi selecionado. A dinâmica desse jogo será adicionada depois.";
+      selectionMessage.classList.remove("hidden");
+    });
+
+    document.getElementById("invite-friend").addEventListener("click", async () => {
+      const status = document.getElementById("invite-status");
+
+      if (window.location.protocol === "file:") {
+        status.textContent =
+          "Para compartilhar um convite, publique esta página em um site com endereço HTTPS.";
+        status.classList.remove("hidden");
+        return;
+      }
+
+      const inviteUrl = new URL(window.location.href);
+      inviteUrl.searchParams.set("sala", roomCode);
+
+      const message =
+        "Oi! Vamos jogar Par ou Ímpar? Entre na minha sala: " +
+        inviteUrl.toString() + " (código: " + roomCode + ")";
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Convite para jogar Par ou Ímpar",
+            text: message,
+            url: inviteUrl.toString()
+          });
+          return;
+        } catch (error) {
+          if (error && error.name === "AbortError") return;
+        }
+      }
+
+      window.open(
+        "https://wa.me/?text=" + encodeURIComponent(message),
+        "_blank",
+        "noopener,noreferrer"
+      );
+    });
+
+    document.getElementById("back-to-games").addEventListener("click", () => {
+      roomScreen.classList.add("hidden");
+      gamesScreen.classList.remove("hidden");
+    });
+
+    renderGames();
+  </script>
 </body>
 </html>
